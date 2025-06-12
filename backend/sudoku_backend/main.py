@@ -3,6 +3,8 @@ from flask import Flask, jsonify
 from flask_cors import CORS
 from routes.daily_puzzle import daily_puzzle_bp
 from routes.sudoku_routes import sudoku_bp
+from gevent import monkey
+monkey.patch_all()
 
 app = Flask(__name__)
 CORS(app)
