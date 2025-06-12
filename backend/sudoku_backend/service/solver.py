@@ -10,7 +10,7 @@ def analyze_sudoku(grid):
         return jsonify({"error": "Puzzle is not solvable."}), 400
 
     filled = sum(cell != 0 for row in grid for cell in row)
-    if filled > 30:
+    if filled > 50:
         return jsonify({"error": "Puzzle is too easy to solve."}), 400
     difficulty = analyze_difficulty(grid)
 

@@ -1,21 +1,21 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Alert, Dimensions, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import DigitCell from '../components/DigitCell';
 import Keypad from '../components/KeyPad';
-import { normalizeDifficulty, updateStatsAfterWin } from '../utils/statsStorage';
+import { markDailyPuzzleCompleted, normalizeDifficulty, updateStatsAfterWin, updateStreak } from '../utils/statsStorage';
 
 export default function SudokuBoard() {
-    const { grid, backendConfig } = useLocalSearchParams();
+    const { grid, backendConfig, isDailyPuzzle, difficulty } = useLocalSearchParams();
     const config = backendConfig ? JSON.parse(backendConfig as string) : { IP: "192.168.1.132", PORT: "5000" };
     
     const parsed = typeof grid === 'string' ? JSON.parse(grid) : grid;
-    const [board, setBoard] = useState<number[][]>(parsed);
+    const [board, setBoard] = useState<number[][]>(parsed || Array(9).fill(Array(9).fill(0)));
     const [fixed, setFixed] = useState<boolean[][]>(
         Array(9).fill(null).map(() => Array(9).fill(false))
     );
     const [selectedCell, setSelectedCell] = useState<{ row: number; col: number } | null>(null);
-    const [stage, setStage] = useState<'edit' | 'solve'>('edit');
+    const [stage, setStage] = useState<'edit' | 'solve'>(isDailyPuzzle === 'true' || difficulty ? 'solve' : 'edit');
     const [mistakes, setMistakes] = useState<boolean[][]>(
         Array(9).fill(null).map(() => Array(9).fill(false))
     );
@@ -35,16 +35,91 @@ export default function SudokuBoard() {
     const gridPadding = 32;
     const gridWidth = screenWidth - gridPadding;
     const cellSize = gridWidth / 9;
-    const [actualDifficulty, setDifficulty] = useState(normalizeDifficulty('medium'));
+    const [actualDifficulty, setDifficulty] = useState(difficulty ? normalizeDifficulty(difficulty as string) : normalizeDifficulty('medium'));
     const [showControls, setShowControls] = useState(true);
-
+    const [isDailyChallenge, setIsDailyChallenge] = useState(isDailyPuzzle === 'true');
+    const [isAnalyzing, setIsAnalyzing] = useState(false);
 
     const router = useRouter();
+
+    useEffect(() => {
+        if (isDailyChallenge && !grid) {
+            fetchDailyPuzzle();
+        }
+        
+        // Auto-confirm if it's a daily or random puzzle
+        if (isDailyPuzzle === 'true' || difficulty) {
+            const confirmAndStart = async () => {
+                try {
+                    // Mark all non-zero cells as fixed
+                    const newFixed = board.map(row => 
+                        row.map(cell => cell !== 0)
+                    );
+                    setFixed(newFixed);
+                    
+                    // Start timer immediately
+                    setTimer(0);
+                    const id = setInterval(() => {
+                        setTimer(t => t + 1);
+                    }, 1000) as unknown as number;
+                    setIntervalId(id);
+                    
+                    // For random puzzles, we need to analyze to get solution
+                    if (difficulty) {
+                        setIsAnalyzing(true);
+                        try {
+                            const response = await fetch(`http://${config.IP}:${config.PORT}/analyze`, {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ grid: board }),
+                            });
+                            
+                            const data = await response.json();
+                            if (data.solution) {
+                                setSolution(data.solution);
+                            }
+                        } finally {
+                            setIsAnalyzing(false);
+                        }
+                    }
+                    
+                } catch (err) {
+                    console.error('Failed to auto-confirm puzzle', err);
+                }
+            };
+            
+            confirmAndStart();
+        }
+    }, []);
+
+    const fetchDailyPuzzle = async () => {
+        try {
+            const response = await fetch(`http://${config.IP}:${config.PORT}/daily`);
+            const data = await response.json();
+            if (data.grid) {
+                setBoard(data.grid);
+                setDifficulty(normalizeDifficulty(data.difficulty || 'medium'));
+            }
+        } catch (error) {
+            console.error('Failed to fetch daily puzzle', error);
+            Alert.alert('Error', 'Could not load daily puzzle. Using fallback puzzle.');
+            setBoard([
+                [5, 3, 0, 0, 7, 0, 0, 0, 0],
+                [6, 0, 0, 1, 9, 5, 0, 0, 0],
+                [0, 9, 8, 0, 0, 0, 0, 6, 0],
+                [8, 0, 0, 0, 6, 0, 0, 0, 3],
+                [4, 0, 0, 8, 0, 3, 0, 0, 1],
+                [7, 0, 0, 0, 2, 0, 0, 0, 6],
+                [0, 6, 0, 0, 0, 0, 2, 8, 0],
+                [0, 0, 0, 4, 1, 9, 0, 0, 5],
+                [0, 0, 0, 0, 8, 0, 0, 7, 9]
+            ]);
+        }
+    };
 
     const handleDigit = (digit: number) => {
         if (!selectedCell) return;
 
-        // Only check fixed cells in solve mode
         if (stage === 'solve' && fixed[selectedCell.row][selectedCell.col]) return;
 
         if (notesMode) {
@@ -66,7 +141,6 @@ export default function SudokuBoard() {
     const handleClear = () => {
         if (!selectedCell) return;
 
-        // Only check fixed cells in solve mode
         if (stage === 'solve' && fixed[selectedCell.row][selectedCell.col]) return;
 
         if (notesMode) {
@@ -95,7 +169,6 @@ export default function SudokuBoard() {
                 return;
             }
 
-            // Only fix cells that have values (non-zero)
             const newFixed = board.map(row => row.map(cell => cell !== 0));
             setFixed(newFixed);
 
@@ -120,6 +193,11 @@ export default function SudokuBoard() {
         const solveTime = timer;
 
         await updateStatsAfterWin(actualDifficulty, solveTime);
+        
+        if (isDailyChallenge) {
+            await updateStreak();
+            await markDailyPuzzleCompleted();
+        }
 
         const mins = Math.floor(solveTime / 60);
         const secs = solveTime % 60;
@@ -137,7 +215,6 @@ export default function SudokuBoard() {
             row.map((val, c) => fixed[r][c] ? false : val !== 0 && val !== solution[r][c])
         );
         setMistakes(updated);
-        setShowControls(false);
 
         const wrongs = updated.flat().filter(x => x).length;
         const empties = board.flat().filter((v, idx) => !fixed[Math.floor(idx / 9)][idx % 9] && v === 0).length;
@@ -204,6 +281,12 @@ export default function SudokuBoard() {
                     </Text>
                 </View>
 
+                {isAnalyzing && (
+                    <View style={styles.loadingOverlay}>
+                        <Text style={styles.loadingText}>Analyzing puzzle...</Text>
+                    </View>
+                )}
+
                 {showControls && (stage === 'solve') && (
                     <View style={styles.modeToggle}>
                         <TouchableOpacity
@@ -246,28 +329,26 @@ export default function SudokuBoard() {
                     </View>
                 </View>
 
-                {stage === 'edit' ? (
+                {/* Only show confirm button for scanned puzzles */}
+                {stage === 'edit' && !isDailyPuzzle && !difficulty && (
                     <TouchableOpacity style={styles.confirmButton} onPress={confirmGrid}>
                         <Text style={styles.buttonText}>Confirm Grid</Text>
                     </TouchableOpacity>
-                ) : (
-                    <>
-                        {showControls && (
-                            <>
-                                <View style={styles.solveButtons}>
-                                    <TouchableOpacity style={[styles.controlButton, styles.hintButton]} onPress={applyHint}>
-                                        <Text style={styles.buttonText}>Hint ({hintCount})</Text>
-                                    </TouchableOpacity>
-                                    <TouchableOpacity style={[styles.controlButton, styles.checkButton]} onPress={checkMistakes}>
-                                        <Text style={styles.buttonText}>Check</Text>
-                                    </TouchableOpacity>
-                                    <TouchableOpacity style={[styles.controlButton, styles.solveButton]} onPress={solveAll}>
-                                        <Text style={styles.buttonText}>Solve</Text>
-                                    </TouchableOpacity>
-                                </View>
-                            </>
-                        )}
-                    </>
+                )}
+
+                {/* Show solve controls for all puzzles */}
+                {stage === 'solve' && showControls && (
+                    <View style={styles.solveButtons}>
+                        <TouchableOpacity style={[styles.controlButton, styles.hintButton]} onPress={applyHint}>
+                            <Text style={styles.buttonText}>Hint ({hintCount})</Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity style={[styles.controlButton, styles.checkButton]} onPress={checkMistakes}>
+                            <Text style={styles.buttonText}>Check</Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity style={[styles.controlButton, styles.solveButton]} onPress={solveAll}>
+                            <Text style={styles.buttonText}>Solve</Text>
+                        </TouchableOpacity>
+                    </View>
                 )}
 
                 {showControls && (stage === 'solve' || stage === 'edit') && (
@@ -281,7 +362,7 @@ export default function SudokuBoard() {
 const styles = StyleSheet.create({
     container: { flex: 1, padding: 10, paddingBottom: 30, alignItems: 'center', backgroundColor: '#2a2a2a' },
     topBar: { width: '90%', flexDirection: 'row', justifyContent: 'space-between', marginBottom: 4 },
-    title: { fontSize: 24, fontWeight: 'bold' , color: 'white'},
+    title: { fontSize: 24, fontWeight: 'bold', color: 'white' },
     timer: { fontSize: 24, color: 'white' },
     row: { flexDirection: 'row' },
     modeToggle: {
@@ -328,7 +409,6 @@ const styles = StyleSheet.create({
         marginLeft: 5
     },
     buttonText: { color: 'white', fontSize: 16 },
-
     fullScreen: {
         flex: 1,
         backgroundColor: '#2a2a2a',
@@ -337,26 +417,37 @@ const styles = StyleSheet.create({
         paddingBottom: 10,
         justifyContent: 'space-between',
     },
-
     gridContainer: {
         flex: 1.6,
         aspectRatio: 1.1,
         justifyContent: 'center',
         alignItems: 'center',
     },
-
     grid: {
         aspectRatio: 1,
         borderWidth: 0,
         borderColor: '#444',
         marginBottom: 10
     },
-
     solveButtons: {
         flexDirection: 'row',
         justifyContent: 'space-between',
         marginTop: 8,
         paddingHorizontal: 10,
     },
-
+    loadingOverlay: {
+        position: 'absolute',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        justifyContent: 'center',
+        alignItems: 'center',
+        backgroundColor: 'rgba(0,0,0,0.7)',
+        zIndex: 100,
+    },
+    loadingText: {
+        color: 'white',
+        fontSize: 18,
+    },
 });

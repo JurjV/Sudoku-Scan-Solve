@@ -39,6 +39,7 @@ export const updateStatsAfterWin = async (
     const currentStats = await loadPlayerStats();
     
     const updatedStats: PlayerStats = {
+        ...currentStats,
         puzzlesCompleted: {
             ...currentStats.puzzlesCompleted,
             [normalizedDiff]: currentStats.puzzlesCompleted[normalizedDiff] + 1
@@ -51,6 +52,73 @@ export const updateStatsAfterWin = async (
   
     await savePlayerStats(updatedStats);
   };
+
+  export const updateStreak = async (): Promise<void> => {
+    const currentStats = await loadPlayerStats();
+    const today = new Date().toISOString().split('T')[0];
+    
+    if (currentStats.streak.lastCompletedDate === today) {
+        return;
+    }
+
+    const yesterday = new Date();
+    yesterday.setDate(yesterday.getDate() - 1);
+    const yesterdayStr = yesterday.toISOString().split('T')[0];
+
+    const isConsecutive = currentStats.streak.lastCompletedDate === yesterdayStr;
+    
+    const updatedStats: PlayerStats = {
+        ...currentStats,
+        streak: {
+            current: isConsecutive ? currentStats.streak.current + 1 : 1,
+            longest: Math.max(
+                currentStats.streak.longest,
+                isConsecutive ? currentStats.streak.current + 1 : 1
+            ),
+            lastCompletedDate: today
+        }
+    };
+
+    await savePlayerStats(updatedStats);
+};
+
+export const markDailyPuzzleCompleted = async (): Promise<void> => {
+    try {
+        const today = new Date().toISOString().split('T')[0];
+        await AsyncStorage.setItem('@lastDailyPuzzleDate', today);
+    } catch (e) {
+        console.error('Failed to mark daily puzzle as completed', e);
+    }
+};
+
+export const canPlayDailyPuzzle = async (): Promise<boolean> => {
+    try {
+        const lastDate = await AsyncStorage.getItem('@lastDailyPuzzleDate');
+        const today = new Date().toISOString().split('T')[0];
+        return lastDate !== today;
+    } catch (e) {
+        console.error('Failed to check daily puzzle status', e);
+        return true;
+    }
+};
+
+export const getNextPuzzleTime = async (): Promise<{hours: number, minutes: number}> => {
+    try {
+        const now = new Date();
+        const tomorrow = new Date(now);
+        tomorrow.setDate(tomorrow.getDate() + 1);
+        tomorrow.setHours(0, 0, 0, 0);
+        
+        const diff = tomorrow.getTime() - now.getTime();
+        return {
+            hours: Math.floor(diff / (1000 * 60 * 60)),
+            minutes: Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60))
+        };
+    } catch (e) {
+        console.error('Failed to calculate next puzzle time', e);
+        return { hours: 0, minutes: 0 };
+    }
+};
 
   export const saveUsername = async (username: string): Promise<void> => {
     try {
