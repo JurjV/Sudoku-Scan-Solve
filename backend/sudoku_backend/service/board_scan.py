@@ -2,10 +2,14 @@ import cv2
 import numpy as np
 import torch
 from model.model_training import DigitCNN
+import os
+
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-MODEL_PATH = "model/digit_cnn_v2.pth"
+MODEL_PATH = os.path.join(os.path.dirname(__file__), "../model/digit_cnn_v2.pth")
 
+if not os.path.exists(MODEL_PATH):
+    raise FileNotFoundError(f"Model file missing at {MODEL_PATH}")
 model = DigitCNN().to(device)
 model.load_state_dict(torch.load(MODEL_PATH, map_location=device))
 model.eval()
