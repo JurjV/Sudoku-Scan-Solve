@@ -37,58 +37,35 @@ export default function SudokuBoard() {
     const cellSize = gridWidth / 9;
     const [actualDifficulty, setDifficulty] = useState(difficulty ? normalizeDifficulty(difficulty as string) : normalizeDifficulty('medium'));
     const [showControls, setShowControls] = useState(true);
-    const [isDailyChallenge, setIsDailyChallenge] = useState(isDailyPuzzle === 'true');
-    const [isAnalyzing, setIsAnalyzing] = useState(false);
+    const isDailyChallenge = isDailyPuzzle === 'true';
 
     const router = useRouter();
 
     useEffect(() => {
         if (isDailyChallenge && !grid) {
             fetchDailyPuzzle();
-        }
-        
-        // Auto-confirm if it's a daily or random puzzle
-        if (isDailyPuzzle === 'true' || difficulty) {
-            const confirmAndStart = async () => {
+        } else if (difficulty) {
+            const prepareRandomPuzzle = async () => {
+                const newFixed = board.map(row => row.map(cell => cell !== 0));
+                setFixed(newFixed);
+                setTimer(0);
+                const id = setInterval(() => setTimer(t => t + 1), 1000) as unknown as number;
+                setIntervalId(id);
+
+                setIsAnalyzing(true);
                 try {
-                    // Mark all non-zero cells as fixed
-                    const newFixed = board.map(row => 
-                        row.map(cell => cell !== 0)
-                    );
-                    setFixed(newFixed);
-                    
-                    // Start timer immediately
-                    setTimer(0);
-                    const id = setInterval(() => {
-                        setTimer(t => t + 1);
-                    }, 1000) as unknown as number;
-                    setIntervalId(id);
-                    
-                    // For random puzzles, we need to analyze to get solution
-                    if (difficulty) {
-                        setIsAnalyzing(true);
-                        try {
-                            const response = await fetch(`${BACKEND_URL}/analyze`, {
-                                method: 'POST',
-                                headers: { 'Content-Type': 'application/json' },
-                                body: JSON.stringify({ grid: board }),
-                            });
-                            
-                            const data = await response.json();
-                            if (data.solution) {
-                                setSolution(data.solution);
-                            }
-                        } finally {
-                            setIsAnalyzing(false);
-                        }
-                    }
-                    
-                } catch (err) {
-                    console.error('Failed to auto-confirm puzzle', err);
+                    const response = await fetch(`${BACKEND_URL}/analyze`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ grid: board }),
+                    });
+                    const data = await response.json();
+                    if (data.solution) setSolution(data.solution);
+                } finally {
+                    setIsAnalyzing(false);
                 }
             };
-            
-            confirmAndStart();
+            prepareRandomPuzzle();
         }
     }, []);
 
@@ -99,6 +76,11 @@ export default function SudokuBoard() {
             if (data.grid) {
                 setBoard(data.grid);
                 setDifficulty(normalizeDifficulty(data.difficulty || 'medium'));
+                const newFixed = data.grid.map((row: number[]) => row.map(cell => cell !== 0));
+                setFixed(newFixed);
+                setTimer(0);
+                const id = setInterval(() => setTimer(t => t + 1), 1000) as unknown as number;
+                setIntervalId(id);
             }
         } catch (error) {
             console.error('Failed to fetch daily puzzle', error);
@@ -116,6 +98,8 @@ export default function SudokuBoard() {
             ]);
         }
     };
+    const [isAnalyzing, setIsAnalyzing] = useState(false);
+
 
     const handleDigit = (digit: number) => {
         if (!selectedCell) return;
