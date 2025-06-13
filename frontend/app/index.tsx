@@ -2,12 +2,8 @@ import { MaterialIcons } from '@expo/vector-icons';
 import { useRouter } from "expo-router";
 import { useEffect, useState } from 'react';
 import { Alert, Modal, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { BACKEND_URL } from './utils/config';
 import { canPlayDailyPuzzle, getNextPuzzleTime, loadPlayerStats } from "./utils/statsStorage";
-
-const BACKEND_CONFIG = {
-  IP: "192.168.1.132",
-  PORT: "5000",
-};
 
 export default function HomeScreen() {
   const router = useRouter();
@@ -52,7 +48,7 @@ export default function HomeScreen() {
   const navigateWithConfig = (screen: string, params?: any) => {
     router.push({
       pathname: `./screens/${screen}`,
-      params: { backendConfig: JSON.stringify(BACKEND_CONFIG), ...params },
+      params: { ...params },
     });
   };
 
@@ -60,7 +56,6 @@ export default function HomeScreen() {
     router.push({
       pathname: './screens/SudokuBoard',
       params: {
-        backendConfig: JSON.stringify(BACKEND_CONFIG),
         isDailyPuzzle: 'true'
       },
     });
@@ -68,7 +63,7 @@ export default function HomeScreen() {
 
   const generateRandomPuzzle = async (difficulty: string) => {
     try {
-      const response = await fetch(`http://${BACKEND_CONFIG.IP}:${BACKEND_CONFIG.PORT}/generate`, {
+      const response = await fetch(`${BACKEND_URL}/generate`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ difficulty }),
