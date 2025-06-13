@@ -57,7 +57,7 @@ def daily_puzzle():
         return jsonify({
             "grid": puzzle,
             "date": current_puzzle_date.isoformat(),
-            "difficulty": "medium"
+            "difficulty": "medium",
         })
     except Exception as e:
         return jsonify({"error": str(e)}), 500

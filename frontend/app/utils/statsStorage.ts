@@ -94,7 +94,7 @@ export const markDailyPuzzleCompleted = async (): Promise<void> => {
 export const canPlayDailyPuzzle = async (): Promise<boolean> => {
     try {
         const lastDate = await AsyncStorage.getItem('@lastDailyPuzzleDate');
-        const today = new Date().toISOString().split('T')[0];
+        const today = new Date().toLocaleDateString('en-CA');  
         return lastDate !== today;
     } catch (e) {
         console.error('Failed to check daily puzzle status', e);
