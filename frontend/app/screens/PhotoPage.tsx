@@ -1,7 +1,8 @@
+import { BACKEND_URL } from '@env';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import * as ImageManipulator from 'expo-image-manipulator';
 import * as ImagePicker from 'expo-image-picker';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useRouter } from 'expo-router';
 import React, { useRef, useState } from 'react';
 import {
   Alert,
@@ -13,11 +14,10 @@ import {
   View,
 } from 'react-native';
 
+
 export default function LandingPage() {
 
-  const { backendConfig } = useLocalSearchParams();
-  const config = backendConfig ? JSON.parse(backendConfig as string) : { IP: "192.168.1.132", PORT: "5000" };
-
+  const API_BASE = BACKEND_URL;
   const [permission, requestPermission] = useCameraPermissions();
   const [flashMode, setFlashMode] = useState<'off' | 'on'>('off');
   const [showInstructions, setShowInstructions] = useState(false);
@@ -45,7 +45,7 @@ export default function LandingPage() {
         name: 'sudoku.jpg',
       } as any);
 
-      const response = await fetch(`http://${config.IP}:${config.PORT}/recognise`, {
+      const response = await fetch(`${API_BASE}/recognise`, {
         method: 'POST',
         body: formData,
         headers: {

@@ -4,10 +4,7 @@ import { useEffect, useState } from 'react';
 import { Alert, Modal, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { canPlayDailyPuzzle, getNextPuzzleTime, loadPlayerStats } from "./utils/statsStorage";
 
-const BACKEND_CONFIG = {
-  IP: "192.168.1.132",
-  PORT: "5000",
-};
+import { BACKEND_URL } from '@env';
 
 export default function HomeScreen() {
   const router = useRouter();
@@ -15,6 +12,8 @@ export default function HomeScreen() {
   const [timeRemaining, setTimeRemaining] = useState({ hours: 0, minutes: 0 });
   const [showDifficultyModal, setShowDifficultyModal] = useState(false);
   const [streak, setStreak] = useState(0);
+  const API_BASE = BACKEND_URL;
+
 
   useEffect(() => {
     const loadStreak = async () => {
@@ -52,7 +51,7 @@ export default function HomeScreen() {
   const navigateWithConfig = (screen: string, params?: any) => {
     router.push({
       pathname: `./screens/${screen}`,
-      params: { backendConfig: JSON.stringify(BACKEND_CONFIG), ...params },
+      params: { ...params },
     });
   };
 
@@ -60,7 +59,6 @@ export default function HomeScreen() {
     router.push({
       pathname: './screens/SudokuBoard',
       params: {
-        backendConfig: JSON.stringify(BACKEND_CONFIG),
         isDailyPuzzle: 'true'
       },
     });
@@ -68,7 +66,7 @@ export default function HomeScreen() {
 
   const generateRandomPuzzle = async (difficulty: string) => {
     try {
-      const response = await fetch(`http://${BACKEND_CONFIG.IP}:${BACKEND_CONFIG.PORT}/generate`, {
+      const response = await fetch(`${API_BASE}/generate`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ difficulty }),

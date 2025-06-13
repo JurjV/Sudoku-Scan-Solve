@@ -1,7 +1,7 @@
 import cv2
 import numpy as np
 import torch
-from model.model_training import DigitCNN
+from model.utils import DigitCNN
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 MODEL_PATH = "model/digit_cnn_v2.pth"
