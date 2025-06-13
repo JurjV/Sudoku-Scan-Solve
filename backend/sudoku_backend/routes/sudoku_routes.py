@@ -6,7 +6,7 @@ from io import BytesIO
 from PIL import Image
 import numpy as np
 
-from service.solver import analyze_sudoku
+from service.solver import analyze_sudoku, solve
 
 sudoku_bp = Blueprint("sudoku", __name__)
 
@@ -50,4 +50,19 @@ def generate_puzzle():
         })
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+
+@sudoku_bp.route('/solve', methods=['POST'])
+def solve_grid():
+    data = request.get_json()
+    grid = data.get("grid")
+
+    if not grid or not isinstance(grid, list) or not all(isinstance(row, list) for row in grid):
+        return jsonify({"error": "Invalid grid format"}), 400
+
+    solved_grid = [row[:] for row in grid]  # deep copy
+
+    if not solve(solved_grid):
+        return jsonify({"error": "Could not solve puzzle"}), 400
+
+    return jsonify({ "solution": solved_grid })
 

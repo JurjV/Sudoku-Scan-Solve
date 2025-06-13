@@ -1,1 +1,1 @@
-export const BACKEND_URL = "https://686e-188-27-129-189.ngrok-free.app";
+export const BACKEND_URL = "http://192.168.1.132:5000";

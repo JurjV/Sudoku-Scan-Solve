@@ -84,7 +84,7 @@ export const updateStatsAfterWin = async (
 
 export const markDailyPuzzleCompleted = async (): Promise<void> => {
     try {
-        const today = new Date().toISOString().split('T')[0];
+        const today = new Date().toLocaleDateString('sv-SE');
         await AsyncStorage.setItem('@lastDailyPuzzleDate', today);
     } catch (e) {
         console.error('Failed to mark daily puzzle as completed', e);
@@ -94,7 +94,7 @@ export const markDailyPuzzleCompleted = async (): Promise<void> => {
 export const canPlayDailyPuzzle = async (): Promise<boolean> => {
     try {
         const lastDate = await AsyncStorage.getItem('@lastDailyPuzzleDate');
-        const today = new Date().toISOString().split('T')[0];
+        const today = new Date().toLocaleDateString('sv-SE');
         return lastDate !== today;
     } catch (e) {
         console.error('Failed to check daily puzzle status', e);

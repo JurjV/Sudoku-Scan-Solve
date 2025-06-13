@@ -8,7 +8,7 @@ import { markDailyPuzzleCompleted, normalizeDifficulty, updateStatsAfterWin, upd
 
 export default function SudokuBoard() {
     const { grid, isDailyPuzzle, difficulty } = useLocalSearchParams();
-    
+
     const parsed = typeof grid === 'string' ? JSON.parse(grid) : grid;
     const [board, setBoard] = useState<number[][]>(parsed || Array(9).fill(Array(9).fill(0)));
     const [fixed, setFixed] = useState<boolean[][]>(
@@ -54,7 +54,7 @@ export default function SudokuBoard() {
 
                 setIsAnalyzing(true);
                 try {
-                    const response = await fetch(`${BACKEND_URL}/analyze`, {
+                    const response = await fetch(`${BACKEND_URL}/solve`, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({ grid: board }),
@@ -73,11 +73,27 @@ export default function SudokuBoard() {
         try {
             const response = await fetch(`${BACKEND_URL}/daily`);
             const data = await response.json();
+
             if (data.grid) {
                 setBoard(data.grid);
                 setDifficulty(normalizeDifficulty(data.difficulty || 'medium'));
+
                 const newFixed = data.grid.map((row: number[]) => row.map(cell => cell !== 0));
                 setFixed(newFixed);
+
+                const solveResponse = await fetch(`${BACKEND_URL}/solve`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ grid: data.grid }),
+                });
+
+                const solveData = await solveResponse.json();
+                if (solveData.solution) {
+                    setSolution(solveData.solution);
+                } else {
+                    console.warn("No solution received for daily puzzle.");
+                }
+
                 setTimer(0);
                 const id = setInterval(() => setTimer(t => t + 1), 1000) as unknown as number;
                 setIntervalId(id);
@@ -98,6 +114,7 @@ export default function SudokuBoard() {
             ]);
         }
     };
+
     const [isAnalyzing, setIsAnalyzing] = useState(false);
 
 
@@ -177,7 +194,7 @@ export default function SudokuBoard() {
         const solveTime = timer;
 
         await updateStatsAfterWin(actualDifficulty, solveTime);
-        
+
         if (isDailyChallenge) {
             await updateStreak();
             await markDailyPuzzleCompleted();
@@ -237,7 +254,11 @@ export default function SudokuBoard() {
     };
 
     const solveAll = () => {
-        Alert.alert('Solve Puzzle', 'Are you sure you want to auto-solve the puzzle?', [
+        if (isDailyChallenge) {
+            Alert.alert("Disabled", "You can't auto-solve the daily puzzle.");
+            return;
+        }
+        Alert.alert('Solve Puzzle', 'Are you sure you want to auto-solve the puzzle? You will not make any progress!', [
             { text: 'Cancel', style: 'cancel' },
             {
                 text: 'Solve',
@@ -370,7 +391,7 @@ const styles = StyleSheet.create({
         padding: 12,
         borderRadius: 10,
         marginTop: 10,
-        marginBottom:10
+        marginBottom: 10
     },
     controlButton: {
         alignItems: 'center',

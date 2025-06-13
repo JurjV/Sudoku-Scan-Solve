@@ -1,6 +1,7 @@
 import { MaterialIcons } from '@expo/vector-icons';
+import { useFocusEffect } from '@react-navigation/native';
 import { useRouter } from "expo-router";
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Alert, Modal, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { BACKEND_URL } from './utils/config';
 import { canPlayDailyPuzzle, getNextPuzzleTime, loadPlayerStats } from "./utils/statsStorage";
@@ -20,30 +21,37 @@ export default function HomeScreen() {
     loadStreak();
   }, []);
 
-  useEffect(() => {
-    const checkPuzzleStatus = async () => {
+  useFocusEffect(
+  useCallback(() => {
+    let interval: ReturnType<typeof setInterval>;
+
+    const refreshState = async () => {
       const canPlay = await canPlayDailyPuzzle();
       setShowDailyPuzzle(canPlay);
+
+      const stats = await loadPlayerStats();
+      setStreak(stats.streak.current);
+
       if (!canPlay) {
         const time = await getNextPuzzleTime();
         setTimeRemaining(time);
       }
     };
 
-    checkPuzzleStatus();
+    refreshState();
 
-    // Update timer every minute
-    const interval = setInterval(async () => {
+    interval = setInterval(async () => {
       if (!showDailyPuzzle) {
         const time = await getNextPuzzleTime();
         setTimeRemaining(time);
       }
     }, 60000);
 
-    return () => {
-      clearInterval(interval);
-    };
-  }, [router, showDailyPuzzle]);
+    return () => clearInterval(interval);
+  }, [])
+);
+
+
 
   const navigateWithConfig = (screen: string, params?: any) => {
     router.push({
@@ -157,29 +165,29 @@ export default function HomeScreen() {
         <View style={styles.modalContainer}>
           <View style={styles.modalContent}>
             <Text style={styles.modalTitle}>Select Difficulty</Text>
-            
-            <TouchableOpacity 
+
+            <TouchableOpacity
               style={[styles.difficultyButton, styles.easyButton]}
               onPress={() => generateRandomPuzzle('easy')}
             >
               <Text style={styles.difficultyButtonText}>Easy</Text>
             </TouchableOpacity>
-            
-            <TouchableOpacity 
+
+            <TouchableOpacity
               style={[styles.difficultyButton, styles.mediumButton]}
               onPress={() => generateRandomPuzzle('medium')}
             >
               <Text style={styles.difficultyButtonText}>Medium</Text>
             </TouchableOpacity>
-            
-            <TouchableOpacity 
+
+            <TouchableOpacity
               style={[styles.difficultyButton, styles.hardButton]}
               onPress={() => generateRandomPuzzle('hard')}
             >
               <Text style={styles.difficultyButtonText}>Hard</Text>
             </TouchableOpacity>
-            
-            <TouchableOpacity 
+
+            <TouchableOpacity
               style={styles.cancelButton}
               onPress={() => setShowDifficultyModal(false)}
             >
