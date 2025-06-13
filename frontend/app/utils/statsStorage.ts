@@ -55,7 +55,7 @@ export const updateStatsAfterWin = async (
 
   export const updateStreak = async (): Promise<void> => {
     const currentStats = await loadPlayerStats();
-    const today = new Date().toISOString().split('T')[0];
+    const today = new Date().toLocaleDateString('sv-SE');
     
     if (currentStats.streak.lastCompletedDate === today) {
         return;
@@ -63,7 +63,7 @@ export const updateStatsAfterWin = async (
 
     const yesterday = new Date();
     yesterday.setDate(yesterday.getDate() - 1);
-    const yesterdayStr = yesterday.toISOString().split('T')[0];
+    const yesterdayStr = yesterday.toLocaleDateString('sv-SE');
 
     const isConsecutive = currentStats.streak.lastCompletedDate === yesterdayStr;
     
