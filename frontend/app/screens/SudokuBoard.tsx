@@ -3,11 +3,11 @@ import React, { useEffect, useState } from 'react';
 import { Alert, Dimensions, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import DigitCell from '../components/DigitCell';
 import Keypad from '../components/KeyPad';
+import { BACKEND_URL } from '../utils/config';
 import { markDailyPuzzleCompleted, normalizeDifficulty, updateStatsAfterWin, updateStreak } from '../utils/statsStorage';
 
 export default function SudokuBoard() {
-    const { grid, backendConfig, isDailyPuzzle, difficulty } = useLocalSearchParams();
-    const config = backendConfig ? JSON.parse(backendConfig as string) : { IP: "192.168.1.132", PORT: "5000" };
+    const { grid, isDailyPuzzle, difficulty } = useLocalSearchParams();
     
     const parsed = typeof grid === 'string' ? JSON.parse(grid) : grid;
     const [board, setBoard] = useState<number[][]>(parsed || Array(9).fill(Array(9).fill(0)));
@@ -68,7 +68,7 @@ export default function SudokuBoard() {
                     if (difficulty) {
                         setIsAnalyzing(true);
                         try {
-                            const response = await fetch(`http://${config.IP}:${config.PORT}/analyze`, {
+                            const response = await fetch(`${BACKEND_URL}/analyze`, {
                                 method: 'POST',
                                 headers: { 'Content-Type': 'application/json' },
                                 body: JSON.stringify({ grid: board }),
@@ -94,7 +94,7 @@ export default function SudokuBoard() {
 
     const fetchDailyPuzzle = async () => {
         try {
-            const response = await fetch(`http://${config.IP}:${config.PORT}/daily`);
+            const response = await fetch(`${BACKEND_URL}/daily`);
             const data = await response.json();
             if (data.grid) {
                 setBoard(data.grid);
@@ -156,7 +156,7 @@ export default function SudokuBoard() {
 
     const confirmGrid = async () => {
         try {
-            const response = await fetch(`http://${config.IP}:${config.PORT}/analyze`, {
+            const response = await fetch(`${BACKEND_URL}/analyze`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ grid: board }),
